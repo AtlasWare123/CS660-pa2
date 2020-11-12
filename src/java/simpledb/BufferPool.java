@@ -183,12 +183,15 @@ public class BufferPool {
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
-        int tableId = t.getRecordId().getPageId().getTableId();
-        DbFile table = Database.getCatalog().getDatabaseFile(tableId);
-        List<Page> modifiedPages = table.deleteTuple(tid, t);
-        for (Page page : modifiedPages) {
+        DbFile hf = Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
+        List<Page> pages = hf.deleteTuple(tid, t);
+        for (Page page : pages) {
             page.markDirty(true, tid);
-            cache.put(page.getId(), page);
+            PageId pid = page.getId();
+            if (!this.cache.containsKey(pid)) {
+                this.getPage(tid, pid, Permissions.READ_WRITE);
+            }
+            this.cache.put(pid, page);
         }
     }
 

@@ -121,4 +121,24 @@ public class Tuple implements Serializable {
     {
         return;
     }
+
+
+    /**
+     * Merge two Tuples into one
+     *
+     * @param tuple1 The first tuple
+     * @param tuple2 The second tuple
+     * @return the new Tuple
+     */
+    public static Tuple merge(Tuple tuple1, Tuple tuple2) {
+        Tuple newTuple = new Tuple(TupleDesc.merge(tuple1.getTupleDesc(), tuple2.getTupleDesc()));
+        for (int i=0; i<tuple1.getTupleDesc().numFields(); i++) {
+            newTuple.setField(i, tuple1.getField(i));
+        }
+        int offset = tuple1.getTupleDesc().numFields();
+        for (int i=0; i<tuple2.getTupleDesc().numFields(); i++) {
+            newTuple.setField(offset + i, tuple2.getField(i));
+        }
+        return newTuple;
+    }
 }

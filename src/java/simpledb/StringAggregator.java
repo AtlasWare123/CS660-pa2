@@ -1,11 +1,18 @@
 package simpledb;
 
+import java.util.*;
+
 /**
  * Knows how to compute some aggregate over a set of StringFields.
  */
 public class StringAggregator implements Aggregator {
 
     private static final long serialVersionUID = 1L;
+    private int groupByField;
+    private Type groupByFieldType;
+    private int aggregateField;
+    private Op aggregateOp;
+    private List<Tuple> tuples;
 
     /**
      * Aggregate constructor
@@ -18,6 +25,15 @@ public class StringAggregator implements Aggregator {
 
     public StringAggregator(int gbfield, Type gbfieldtype, int afield, Op what) {
         // some code goes here
+        if(!Op.COUNT.equals(what)){
+            throw new IllegalArgumentException("only COUNT is supported");
+        }
+
+        this.groupByField = gbfield;
+        this.groupByFieldType = gbfieldtype;
+        this.aggregateField = afield;
+        this.aggregateOp = what;
+
     }
 
     /**
@@ -26,6 +42,10 @@ public class StringAggregator implements Aggregator {
      */
     public void mergeTupleIntoGroup(Tuple tup) {
         // some code goes here
+        if(this.tuples == null){
+            this.tuples = new ArrayList<>();
+        }
+        tuples.add(tup);
     }
 
     /**
@@ -38,7 +58,41 @@ public class StringAggregator implements Aggregator {
      */
     public DbIterator iterator() {
         // some code goes here
-        throw new UnsupportedOperationException("please implement me for lab3");
+        switch (this.aggregateOp) {
+            case COUNT:
+                return count(this.tuples, groupByFieldType, groupByField);
+            default:
+                throw new UnsupportedOperationException(String.format("%s is not supported in IntegerAggregator", this.aggregateOp.toString()));
+        }
     }
 
+    DbIterator count(List<Tuple> tuples, Type groupByFieldType, int groupByField){
+        if (tuples == null || tuples.isEmpty()) {
+            throw new NoSuchElementException("No tuple can be processed");
+        }
+
+        // for no grouping
+        if (groupByField == NO_GROUPING) {
+            TupleDesc td = new TupleDesc(new Type[] { groupByFieldType, Type.INT_TYPE });
+            Tuple tuple = new Tuple(td);
+            tuple.setField(0, new IntField(tuples.size()));
+            return new TupleIterator(td, Collections.singletonList(tuple));
+        }
+
+        // for grouping
+        Map<Field, Integer> fieldToCountMap = new HashMap<>();
+        for (Tuple tuple : tuples) {
+            Field key = tuple.getField(groupByField);
+            fieldToCountMap.put(key, fieldToCountMap.getOrDefault(key, 0) + 1);
+        }
+        List<Tuple> result = new ArrayList<>();
+        TupleDesc td = new TupleDesc(new Type[] { groupByFieldType, Type.INT_TYPE });
+        for (Map.Entry<Field, Integer> entry : fieldToCountMap.entrySet()) {
+            Tuple tuple = new Tuple(td);
+            tuple.setField(0, entry.getKey());
+            tuple.setField(1, new IntField(entry.getValue()));
+            result.add(tuple);
+        }
+        return new TupleIterator(td, result);
+    }
 }

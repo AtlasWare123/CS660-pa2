@@ -140,25 +140,13 @@ public class HeapFile implements DbFile {
     public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
             TransactionAbortedException {
         // some code goes here
-        HeapPage affectedPage = null;
-        ArrayList<Page> affectedPages = new ArrayList<>();
-        for(int i = 0; i < numPages(); i++){
-            // get pid
-            HeapPageId pid = new HeapPageId(getId(), i);
-            HeapPage page =  (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
-            if(i == pid.pageNumber()){
-                affectedPage = page;
-                affectedPage.deleteTuple(t);
-                affectedPages.add(affectedPage);
-                continue;
-            }
-            affectedPages.add(page);
+        PageId pid = t.getRecordId().getPageId();
+        if (pid.getTableId() != this.getId() || pid.pageNumber() >= this.numPages()) {
+            throw new DbException("The tuple doesn't exist in this table");
         }
-        if(affectedPage == null){
-            throw new DbException("tuple " + t + " is not in this table");
-        }
-        return affectedPages;
-        // not necessary for lab1
+        HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
+        page.deleteTuple(t);
+        return new ArrayList<>(Collections.singleton(page));
     }
 
     // see DbFile.java for javadocs
