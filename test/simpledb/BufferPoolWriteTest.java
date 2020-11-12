@@ -129,6 +129,7 @@ public class BufferPoolWriteTest extends TestUtil.CreateHeapFile {
     	while(it.hasNext()) {
     		it.next();
     		count++;
+
     	}
     	assertEquals(10, count);
     }
