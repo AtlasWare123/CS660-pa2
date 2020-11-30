@@ -73,28 +73,7 @@ public class JoinOptimizer {
 
     }
 
-    /**
-     * Estimate the join cardinality of two tables.
-     */
-    public static int estimateTableJoinCardinality(Predicate.Op joinOp, String table1Alias, String table2Alias,
-                                                   String field1PureName, String field2PureName, int card1, int card2, boolean t1pkey, boolean t2pkey,
-                                                   Map<String, TableStats> stats, Map<String, Integer> tableAliasToId) {
-        int card = 1;
-        // some code goes here
-        if(joinOp == Predicate.Op.EQUALS){
-            if(t1pkey){
-                card = card2;
-            }else if(t2pkey){
-                card = card1;
-            }else{
-                card = card1>card2 ?card1:card2;
-            }
-        }else{
-            double temp = 0.3 * card1 *card2;
-            card = (int)temp;
-        }
-        return card <= 0 ? 1 : card;
-    }
+
 
     /**
      * Estimate the cost of a join.
@@ -154,6 +133,28 @@ public class JoinOptimizer {
         }
     }
 
+    /**
+     * Estimate the join cardinality of two tables.
+     */
+    public static int estimateTableJoinCardinality(Predicate.Op joinOp, String table1Alias, String table2Alias,
+                                                   String field1PureName, String field2PureName, int card1, int card2, boolean t1pkey, boolean t2pkey,
+                                                   Map<String, TableStats> stats, Map<String, Integer> tableAliasToId) {
+        int card = 1;
+        // some code goes here
+        if(joinOp == Predicate.Op.EQUALS){
+            if(t1pkey){
+                card = card2;
+            }else if(t2pkey){
+                card = card1;
+            }else{
+                card = card1>card2 ?card1:card2;
+            }
+        }else{
+            double temp = 0.3 * card1 *card2;
+            card = (int)temp;
+        }
+        return card <= 0 ? 1 : card;
+    }
 
 
 
