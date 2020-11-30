@@ -12,7 +12,7 @@ import jline.SimpleCompletor;
 public class Parser {
     static boolean explain = false;
 
-    public static Predicate.Op getOp(String s) throws simpledb.ParsingException {
+    public static Predicate.Op getOp(String s) throws ParsingException {
         if (s.equals("="))
             return Predicate.Op.EQUALS;
         if (s.equals(">"))
@@ -32,15 +32,15 @@ public class Parser {
         if (s.equals("!="))
             return Predicate.Op.NOT_EQUALS;
 
-        throw new simpledb.ParsingException("Unknown predicate " + s);
+        throw new ParsingException("Unknown predicate " + s);
     }
 
     void processExpression(TransactionId tid, ZExpression wx, LogicalPlan lp)
-            throws simpledb.ParsingException {
+            throws ParsingException {
         if (wx.getOperator().equals("AND")) {
             for (int i = 0; i < wx.nbOperands(); i++) {
                 if (!(wx.getOperand(i) instanceof ZExpression)) {
-                    throw new simpledb.ParsingException(
+                    throw new ParsingException(
                             "Nested queries are currently unsupported.");
                 }
                 ZExpression newWx = (ZExpression) wx.getOperand(i);
@@ -48,14 +48,14 @@ public class Parser {
 
             }
         } else if (wx.getOperator().equals("OR")) {
-            throw new simpledb.ParsingException(
+            throw new ParsingException(
                     "OR expressions currently unsupported.");
         } else {
             // this is a binary expression comparing two constants
             @SuppressWarnings("unchecked")
             Vector<ZExp> ops = wx.getOperands();
             if (ops.size() != 2) {
-                throw new simpledb.ParsingException(
+                throw new ParsingException(
                         "Only simple binary expresssions of the form A op B are currently supported.");
             }
 
@@ -76,7 +76,7 @@ public class Parser {
                 isJoin = true;
             } else if (ops.elementAt(0) instanceof ZExpression
                     || ops.elementAt(1) instanceof ZExpression) {
-                throw new simpledb.ParsingException(
+                throw new ParsingException(
                         "Only simple binary expresssions of the form A op B are currently supported, where A or B are fields, constants, or subqueries.");
             } else
                 isJoin = false;
@@ -101,10 +101,10 @@ public class Parser {
                                 TableStats.getStatsMap(), explain);
                         lp.addJoin(tab1field, pp, op);
                     } catch (IOException e) {
-                        throw new simpledb.ParsingException("Invalid subquery "
+                        throw new ParsingException("Invalid subquery "
                                 + ops.elementAt(1));
-                    } catch (Zql.ParseException e) {
-                        throw new simpledb.ParsingException("Invalid subquery "
+                    } catch (ParseException e) {
+                        throw new ParsingException("Invalid subquery "
                                 + ops.elementAt(1));
                     }
                 } else {
@@ -133,7 +133,7 @@ public class Parser {
     }
 
     public LogicalPlan parseQueryLogicalPlan(TransactionId tid, ZQuery q)
-            throws IOException, Zql.ParseException, simpledb.ParsingException {
+            throws IOException, ParseException, ParsingException {
         @SuppressWarnings("unchecked")
         Vector<ZFromItem> from = q.getFrom();
         LogicalPlan lp = new LogicalPlan();
@@ -162,7 +162,7 @@ public class Parser {
                 // XXX handle subquery?
             } catch (NoSuchElementException e) {
                 e.printStackTrace();
-                throw new simpledb.ParsingException("Table "
+                throw new ParsingException("Table "
                         + fromIt.getTable() + " is not in catalog");
             }
         }
@@ -172,7 +172,7 @@ public class Parser {
         if (w != null) {
 
             if (!(w instanceof ZExpression)) {
-                throw new simpledb.ParsingException(
+                throw new ParsingException(
                         "Nested queries are currently unsupported.");
             }
             ZExpression wx = (ZExpression) w;
@@ -187,13 +187,13 @@ public class Parser {
             @SuppressWarnings("unchecked")
             Vector<ZExp> gbs = gby.getGroupBy();
             if (gbs.size() > 1) {
-                throw new simpledb.ParsingException(
+                throw new ParsingException(
                         "At most one grouping field expression supported.");
             }
             if (gbs.size() == 1) {
                 ZExp gbe = gbs.elementAt(0);
                 if (!(gbe instanceof ZConstant)) {
-                    throw new simpledb.ParsingException(
+                    throw new ParsingException(
                             "Complex grouping expressions (" + gbe
                                     + ") not supported.");
                 }
@@ -214,12 +214,12 @@ public class Parser {
             ZSelectItem si = selectList.elementAt(i);
             if (si.getAggregate() == null
                     && (si.isExpression() && !(si.getExpression() instanceof ZConstant))) {
-                throw new simpledb.ParsingException(
+                throw new ParsingException(
                         "Expressions in SELECT list are not supported.");
             }
             if (si.getAggregate() != null) {
                 if (aggField != null) {
-                    throw new simpledb.ParsingException(
+                    throw new ParsingException(
                             "Aggregates over multiple fields not supported.");
                 }
                 aggField = ((ZConstant) ((ZExpression) si.getExpression())
@@ -233,7 +233,7 @@ public class Parser {
                         && !(groupByField.equals(si.getTable() + "."
                                 + si.getColumn()) || groupByField.equals(si
                                 .getColumn()))) {
-                    throw new simpledb.ParsingException("Non-aggregate field "
+                    throw new ParsingException("Non-aggregate field "
                             + si.getColumn()
                             + " does not appear in GROUP BY list.");
                 }
@@ -242,7 +242,7 @@ public class Parser {
         }
 
         if (groupByField != null && aggFun == null) {
-            throw new simpledb.ParsingException("GROUP BY without aggregation.");
+            throw new ParsingException("GROUP BY without aggregation.");
         }
 
         if (aggFun != null) {
@@ -254,12 +254,12 @@ public class Parser {
             @SuppressWarnings("unchecked")
             Vector<ZOrderBy> obys = q.getOrderBy();
             if (obys.size() > 1) {
-                throw new simpledb.ParsingException(
+                throw new ParsingException(
                         "Multi-attribute ORDER BY is not supported.");
             }
             ZOrderBy oby = obys.elementAt(0);
             if (!(oby.getExpression() instanceof ZConstant)) {
-                throw new simpledb.ParsingException(
+                throw new ParsingException(
                         "Complex ORDER BY's are not supported");
             }
             ZConstant f = (ZConstant) oby.getExpression();
@@ -275,7 +275,7 @@ public class Parser {
 
     public Query handleQueryStatement(ZQuery s, TransactionId tId)
             throws TransactionAbortedException, DbException, IOException,
-            simpledb.ParsingException, Zql.ParseException {
+            ParsingException, ParseException {
         Query query = new Query(tId);
 
         LogicalPlan lp = parseQueryLogicalPlan(tId, s);
@@ -322,7 +322,7 @@ public class Parser {
 
     public Query handleInsertStatement(ZInsert s, TransactionId tId)
             throws TransactionAbortedException, DbException, IOException,
-            simpledb.ParsingException, Zql.ParseException {
+            ParsingException, ParseException {
         int tableId;
         try {
             tableId = Database.getCatalog().getTableId(s.getTable()); // will
@@ -332,7 +332,7 @@ public class Parser {
             // doesn't
             // exist
         } catch (NoSuchElementException e) {
-            throw new simpledb.ParsingException("Unknown table : "
+            throw new ParsingException("Unknown table : "
                     + s.getTable());
         }
 
@@ -346,19 +346,19 @@ public class Parser {
             @SuppressWarnings("unchecked")
             Vector<ZExp> values = (Vector<ZExp>) s.getValues();
             if (td.numFields() != values.size()) {
-                throw new simpledb.ParsingException(
+                throw new ParsingException(
                         "INSERT statement does not contain same number of fields as table "
                                 + s.getTable());
             }
             for (ZExp e : values) {
 
                 if (!(e instanceof ZConstant))
-                    throw new simpledb.ParsingException(
+                    throw new ParsingException(
                             "Complex expressions not allowed in INSERT statements.");
                 ZConstant zc = (ZConstant) e;
                 if (zc.getType() == ZConstant.NUMBER) {
                     if (td.getFieldType(i) != Type.INT_TYPE) {
-                        throw new simpledb.ParsingException("Value "
+                        throw new ParsingException("Value "
                                 + zc.getValue()
                                 + " is not an integer, expected a string.");
                     }
@@ -366,7 +366,7 @@ public class Parser {
                     t.setField(i, f);
                 } else if (zc.getType() == ZConstant.STRING) {
                     if (td.getFieldType(i) != Type.STRING_TYPE) {
-                        throw new simpledb.ParsingException("Value "
+                        throw new ParsingException("Value "
                                 + zc.getValue()
                                 + " is a string, expected an integer.");
                     }
@@ -374,7 +374,7 @@ public class Parser {
                             Type.STRING_LEN);
                     t.setField(i, f);
                 } else {
-                    throw new simpledb.ParsingException(
+                    throw new ParsingException(
                             "Only string or int fields are supported.");
                 }
 
@@ -396,7 +396,7 @@ public class Parser {
 
     public Query handleDeleteStatement(ZDelete s, TransactionId tid)
             throws TransactionAbortedException, DbException, IOException,
-            simpledb.ParsingException, Zql.ParseException {
+            ParsingException, ParseException {
         int id;
         try {
             id = Database.getCatalog().getTableId(s.getTable()); // will fall
@@ -405,7 +405,7 @@ public class Parser {
                                                                  // doesn't
                                                                  // exist
         } catch (NoSuchElementException e) {
-            throw new simpledb.ParsingException("Unknown table : "
+            throw new ParsingException("Unknown table : "
                     + s.getTable());
         }
         String name = s.getTable();
@@ -429,10 +429,10 @@ public class Parser {
 
     public void handleTransactStatement(ZTransactStmt s)
             throws TransactionAbortedException, DbException, IOException,
-            simpledb.ParsingException, Zql.ParseException {
+            ParsingException, ParseException {
         if (s.getStmtType().equals("COMMIT")) {
             if (curtrans == null)
-                throw new simpledb.ParsingException(
+                throw new ParsingException(
                         "No transaction is currently running");
             curtrans.commit();
             curtrans = null;
@@ -441,7 +441,7 @@ public class Parser {
                     + " committed.");
         } else if (s.getStmtType().equals("ROLLBACK")) {
             if (curtrans == null)
-                throw new simpledb.ParsingException(
+                throw new ParsingException(
                         "No transaction is currently running");
             curtrans.abort();
             curtrans = null;
@@ -451,7 +451,7 @@ public class Parser {
 
         } else if (s.getStmtType().equals("SET TRANSACTION")) {
             if (curtrans != null)
-                throw new simpledb.ParsingException(
+                throw new ParsingException(
                         "Can't start new transactions until current transaction has been committed or rolledback.");
             curtrans = new Transaction();
             curtrans.start();
@@ -459,12 +459,12 @@ public class Parser {
             System.out.println("Started a new transaction tid = "
                     + curtrans.getId().getId());
         } else {
-            throw new simpledb.ParsingException("Unsupported operation");
+            throw new ParsingException("Unsupported operation");
         }
     }
 
     public LogicalPlan generateLogicalPlan(TransactionId tid, String s)
-            throws simpledb.ParsingException {
+            throws ParsingException {
         ByteArrayInputStream bis = new ByteArrayInputStream(s.getBytes());
         ZqlParser p = new ZqlParser(bis);
         try {
@@ -473,14 +473,14 @@ public class Parser {
                 LogicalPlan lp = parseQueryLogicalPlan(tid, (ZQuery) stmt);
                 return lp;
             }
-        } catch (Zql.ParseException e) {
-            throw new simpledb.ParsingException(
+        } catch (ParseException e) {
+            throw new ParsingException(
                     "Invalid SQL expression: \n \t " + e);
         } catch (IOException e) {
-            throw new simpledb.ParsingException(e);
+            throw new ParsingException(e);
         }
 
-        throw new simpledb.ParsingException(
+        throw new ParsingException(
                 "Cannot generate logical plan for expression : " + s);
     }
 
@@ -507,8 +507,9 @@ public class Parser {
             ZStatement s = p.readStatement();
 
             Query query = null;
-            if (s instanceof ZTransactStmt)
+            if (s instanceof ZTransactStmt) {
                 handleTransactStatement((ZTransactStmt) s);
+            }
             else {
                 if (!this.inUserTrans) {
                     curtrans = new Transaction();
@@ -550,11 +551,11 @@ public class Parser {
                     }
                     this.inUserTrans = false;
 
-                    if (a instanceof simpledb.ParsingException
-                            || a instanceof Zql.ParseException)
+                    if (a instanceof ParsingException
+                            || a instanceof ParseException)
                         throw new ParsingException((Exception) a);
-                    if (a instanceof Zql.TokenMgrError)
-                        throw (Zql.TokenMgrError) a;
+                    if (a instanceof TokenMgrError)
+                        throw (TokenMgrError) a;
                     throw new DbException(a.getMessage());
                 } finally {
                     if (!inUserTrans)
@@ -568,12 +569,12 @@ public class Parser {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
-        } catch (simpledb.ParsingException e) {
+        } catch (ParsingException e) {
             System.out
                     .println("Invalid SQL expression: \n \t" + e.getMessage());
-        } catch (Zql.ParseException e) {
+        } catch (ParseException e) {
             System.out.println("Invalid SQL expression: \n \t " + e);
-        } catch (Zql.TokenMgrError e) {
+        } catch (TokenMgrError e) {
             System.out.println("Invalid SQL expression: \n \t " + e);
         }
     }
@@ -666,6 +667,7 @@ public class Parser {
             String line;
             boolean quit = false;
             while (!quit && (line = reader.readLine("SimpleDB> ")) != null) {
+
                 // Split statements at ';': handles multiple statements on one
                 // line, or one
                 // statement spread across many lines

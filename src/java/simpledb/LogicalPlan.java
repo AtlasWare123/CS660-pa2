@@ -320,7 +320,7 @@ public class LogicalPlan {
             
             try {//td.fieldNameToIndex(disambiguateName(lf.fieldPureName))
                 ftyp = td.getFieldType(td.fieldNameToIndex(lf.fieldQuantifiedName));
-            } catch (java.util.NoSuchElementException e) {
+            } catch (NoSuchElementException e) {
                 throw new ParsingException("Unknown field in filter expression " + lf.fieldQuantifiedName);
             }
             if (ftyp == Type.INT_TYPE)
@@ -390,7 +390,7 @@ public class LogicalPlan {
                 equivMap.put(t2name,t1name);  //keep track of the fact that this new node contains both tables
                     //make sure anything that was equiv to lj.t2 (which we are just removed) is
                     // marked as equiv to lj.t1 (which we are replacing lj.t2 with.)
-                    for (java.util.Map.Entry<String, String> s: equivMap.entrySet()) {
+                    for (Map.Entry<String, String> s: equivMap.entrySet()) {
                         String val = s.getValue();
                         if (val.equals(t2name)) {
                             s.setValue(t1name);
@@ -467,9 +467,9 @@ public class LogicalPlan {
                                         groupByField == null?Aggregator.NO_GROUPING:td.fieldNameToIndex(groupByField),
                                 getAggOp(aggOp));
             } catch (NoSuchElementException e) {
-                throw new simpledb.ParsingException(e);
+                throw new ParsingException(e);
             } catch (IllegalArgumentException e) {
-                throw new simpledb.ParsingException(e);
+                throw new ParsingException(e);
             }
             node = aggNode;
         }

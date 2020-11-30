@@ -7,15 +7,17 @@ import java.util.*;
  */
 public class HashEquiJoin extends Operator {
 
-    public final static int MAP_SIZE = 20000;
     private static final long serialVersionUID = 1L;
-    HashMap<Object, ArrayList<Tuple>> map = new HashMap<Object, ArrayList<Tuple>>();
+
+    private final JoinPredicate p;
+    private DbIterator child1;
+    private DbIterator child2;
+
+    private final transient Map<Field, List<Tuple>> map;
+    private transient Tuple tuple1;
+    private transient Tuple tuple2;
+
     transient Iterator<Tuple> listIt = null;
-    private JoinPredicate pred;
-    private DbIterator child1, child2;
-    private TupleDesc comboTD;
-    transient private Tuple t1 = null;
-    transient private Tuple t2 = null;
 
     /**
      * Constructor. Accepts to children to join and the predicate to join them
@@ -26,66 +28,68 @@ public class HashEquiJoin extends Operator {
      * @param child2 Iterator for the right(inner) relation to join
      */
     public HashEquiJoin(JoinPredicate p, DbIterator child1, DbIterator child2) {
-        this.pred = p;
+        this.p = p;
         this.child1 = child1;
         this.child2 = child2;
-        comboTD = TupleDesc.merge(child1.getTupleDesc(), child2.getTupleDesc());
+        this.map = new HashMap<>();
     }
 
     public JoinPredicate getJoinPredicate() {
-        return pred;
+        return p;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public TupleDesc getTupleDesc() {
-        return comboTD;
+        return TupleDesc.merge(child1.getTupleDesc(), child2.getTupleDesc());
     }
 
     public String getJoinField1Name() {
-        return this.child1.getTupleDesc().getFieldName(this.pred.getField1());
+        return child1.getTupleDesc().getFieldName(p.getField1());
     }
 
     public String getJoinField2Name() {
-        return this.child2.getTupleDesc().getFieldName(this.pred.getField2());
+        return child2.getTupleDesc().getFieldName(p.getField2());
     }
 
-    private boolean loadMap() throws DbException, TransactionAbortedException {
-        int cnt = 0;
-        map.clear();
-        while (child1.hasNext()) {
-            t1 = child1.next();
-            ArrayList<Tuple> list = map.get(t1.getField(pred.getField1()));
-            if (list == null) {
-                list = new ArrayList<Tuple>();
-                map.put(t1.getField(pred.getField1()), list);
-            }
-            list.add(t1);
-            if (cnt++ == MAP_SIZE)
-                return true;
-        }
-        return cnt > 0;
-
-    }
-
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void open() throws DbException, NoSuchElementException, TransactionAbortedException {
+        super.open();
         child1.open();
         child2.open();
-        loadMap();
-        super.open();
+
+        tuple2 = child2.hasNext() ? child2.next() : null;
+        listIt = null;
+        initMap();
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void close() {
         super.close();
-        child2.close();
         child1.close();
-        this.t1 = null;
-        this.t2 = null;
-        this.listIt = null;
-        this.map.clear();
+        child2.close();
+
+        listIt = null;
+        tuple1 = null;
+        tuple2 = null;
+        map.clear();
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void rewind() throws DbException, TransactionAbortedException {
-        child1.rewind();
-        child2.rewind();
+        close();
+        open();
     }
 
     /**
@@ -106,60 +110,66 @@ public class HashEquiJoin extends Operator {
      * @return The next matching tuple.
      * @see JoinPredicate#filter
      */
-    private Tuple processList() throws TransactionAbortedException, DbException {
-        t1 = listIt.next();
-
-        int td1n = t1.getTupleDesc().numFields();
-        int td2n = t2.getTupleDesc().numFields();
-
-        // set fields in combined tuple
-        Tuple t = new Tuple(comboTD);
-        for (int i = 0; i < td1n; i++)
-            t.setField(i, t1.getField(i));
-        for (int i = 0; i < td2n; i++)
-            t.setField(td1n + i, t2.getField(i));
-        return t;
-
-    }
-
+    @Override
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
-        if (listIt != null && listIt.hasNext()) {
-            return processList();
+        while (!map.isEmpty()) {
+            while (tuple2 != null) {
+                if (listIt == null) {
+                    // try to setup the list, otherwise skip
+                    Field field = tuple2.getField(p.getField2());
+                    if (map.containsKey(field)) {
+                        listIt = map.get(field).listIterator();
+                    } else {
+                        tuple2 = child2.hasNext() ? child2.next() : null;
+                        continue;
+                    }
+                }
+                if (listIt.hasNext()) {
+                    tuple1 = listIt.next();
+                    if (p.filter(tuple1, tuple2)) {
+                        Tuple tupleJoin = new Tuple(getTupleDesc());
+                        int j = 0;
+                        for (int i = 0; i < child1.getTupleDesc().numFields(); ++i) {
+                            tupleJoin.setField(j++, tuple1.getField(i));
+                        }
+                        for (int i = 0; i < child2.getTupleDesc().numFields(); ++i) {
+                            tupleJoin.setField(j++, tuple2.getField(i));
+                        }
+                        return tupleJoin;
+                    }
+                } else {
+                    tuple2 = child2.hasNext() ? child2.next() : null;
+                    listIt = null;
+                }
+            }
+            initMap();
+            child2.rewind();
+            tuple2 = child2.hasNext() ? child2.next() : null;
+            listIt = null;
         }
-
-        // loop around child2
-        while (child2.hasNext()) {
-            t2 = child2.next();
-
-            // if match, create a combined tuple and fill it with the values
-            // from both tuples
-            ArrayList<Tuple> l = map.get(t2.getField(pred.getField2()));
-            if (l == null)
-                continue;
-            listIt = l.iterator();
-
-            return processList();
-
-        }
-
-        // child2 is done: advance child1
-        child2.rewind();
-        if (loadMap()) {
-            return fetchNext();
-        }
-
         return null;
     }
 
     @Override
     public DbIterator[] getChildren() {
-        return new DbIterator[] { this.child1, this.child2 };
+        return new DbIterator[]{child1, child2};
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-        this.child1 = children[0];
-        this.child2 = children[1];
+        child1 = children[0];
+        child2 = children[1];
     }
 
+    private void initMap() throws DbException, TransactionAbortedException {
+        map.clear();
+        while (child1.hasNext()) {
+            tuple1 = child1.next();
+            Field field = tuple1.getField(p.getField1());
+            if (!map.containsKey(field)) {
+                map.put(field, new ArrayList<>());
+            }
+            map.get(field).add(tuple1);
+        }
+    }
 }

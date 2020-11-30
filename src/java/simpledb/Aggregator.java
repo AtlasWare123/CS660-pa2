@@ -78,7 +78,7 @@ public interface Aggregator extends Serializable {
 
     /**
      * Create a DbIterator over group aggregate results.
-     * @see simpledb.TupleIterator for a possible helper
+     * @see TupleIterator for a possible helper
      */
     public DbIterator iterator();
     

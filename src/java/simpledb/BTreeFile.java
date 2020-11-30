@@ -13,10 +13,10 @@ import simpledb.Predicate.Op;
  * in sorted order. BTreeFile works closely with BTreeLeafPage, BTreeInternalPage,
  * and BTreeRootPtrPage. The format of these pages is described in their constructors.
  * 
- * @see simpledb.BTreeLeafPage#BTreeLeafPage
- * @see simpledb.BTreeInternalPage#BTreeInternalPage
- * @see simpledb.BTreeHeaderPage#BTreeHeaderPage
- * @see simpledb.BTreeRootPtrPage#BTreeRootPtrPage
+ * @see BTreeLeafPage#BTreeLeafPage
+ * @see BTreeInternalPage#BTreeInternalPage
+ * @see BTreeHeaderPage#BTreeHeaderPage
+ * @see BTreeRootPtrPage#BTreeRootPtrPage
  * @author Becca Taft
  */
 public class BTreeFile implements DbFile {
